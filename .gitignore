@@ -1,1 +1,53 @@
+## .gitignore for C# .NET WinUI 3 project
 
+# Build artifacts
+bin/
+obj/
+out/
+publish/
+
+# Visual Studio files
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# NuGet packages
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Windows Installer XML (WiX)
+*.wixobj
+*.wixpdb
+
+# MSIX packaging
+AppPackages/
+BundleArtifacts/
+Package.StoreAssociation.xml
+_pkginfo.txt
+*.appx
+*.appxbundle
+*.appxupload
+
+# Rider IDE
+.idea/
+*.sln.iml
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local app settings (sensitive)
+appsettings.local.json
+local.settings.json
