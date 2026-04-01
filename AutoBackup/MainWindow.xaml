@@ -1,0 +1,27 @@
+<winuiex:WindowEx
+    x:Class="AutoBackup.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:winuiex="using:WinUIEx"
+    Title="AutoBackup"
+    MinWidth="900"
+    MinHeight="600">
+
+    <!-- System-tray icon definition (WinUIEx) -->
+    <winuiex:WindowEx.TaskBarIcon>
+        <winuiex:TaskbarIcon
+            ToolTipText="AutoBackup"
+            IconSource="Assets/tray-icon.ico">
+            <winuiex:TaskbarIcon.ContextFlyout>
+                <MenuFlyout>
+                    <MenuFlyoutItem Text="Open AutoBackup" Click="TrayOpen_Click" />
+                    <MenuFlyoutSeparator />
+                    <MenuFlyoutItem Text="Exit" Click="TrayExit_Click" />
+                </MenuFlyout>
+            </winuiex:TaskbarIcon.ContextFlyout>
+        </winuiex:TaskbarIcon>
+    </winuiex:WindowEx.TaskBarIcon>
+
+    <Frame x:Name="RootFrame" />
+
+</winuiex:WindowEx>
