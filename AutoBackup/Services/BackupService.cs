@@ -113,36 +113,38 @@ public sealed class BackupService
     private async Task<BackupResult> CopyFilesAsync(
         BackupJob job, string destRoot, string correlationId, int attempt, CancellationToken ct)
     {
-        Directory.CreateDirectory(destRoot);
-
-        var allFiles = Directory.EnumerateFiles(job.SourcePath, "*", SearchOption.AllDirectories);
-        int copied = 0;
-        int skipped = 0;
-
-        foreach (var srcFile in allFiles)
+        return await Task.Run(() =>
         {
-            ct.ThrowIfCancellationRequested();
+            Directory.CreateDirectory(destRoot);
 
-            var relativePath = Path.GetRelativePath(job.SourcePath, srcFile);
-            var destFile = Path.Combine(destRoot, relativePath);
-            var destDir = Path.GetDirectoryName(destFile)!;
+            var allFiles = Directory.EnumerateFiles(job.SourcePath, "*", SearchOption.AllDirectories);
+            int copied = 0;
+            int skipped = 0;
 
-            Directory.CreateDirectory(destDir);
-
-            if (!TryOpenExclusive(srcFile))
+            foreach (var srcFile in allFiles)
             {
-                _log.Warn(correlationId, $"Skipping locked file: {relativePath}");
-                skipped++;
-                continue;
+                ct.ThrowIfCancellationRequested();
+
+                var relativePath = Path.GetRelativePath(job.SourcePath, srcFile);
+                var destFile = Path.Combine(destRoot, relativePath);
+                var destDir = Path.GetDirectoryName(destFile)!;
+
+                Directory.CreateDirectory(destDir);
+
+                if (!TryOpenExclusive(srcFile))
+                {
+                    _log.Warn(correlationId, $"Skipping locked file: {relativePath}");
+                    skipped++;
+                    continue;
+                }
+
+                File.Copy(srcFile, destFile, overwrite: true);
+                copied++;
             }
 
-            // Use async copy to avoid blocking the thread pool
-            await Task.Run(() => File.Copy(srcFile, destFile, overwrite: true), ct);
-            copied++;
-        }
-
-        var status = skipped > 0 ? BackupStatus.PartialSuccess : BackupStatus.Success;
-        return new BackupResult(job.Id, correlationId, status, attempt, copied, skipped, destRoot);
+            var status = skipped > 0 ? BackupStatus.PartialSuccess : BackupStatus.Success;
+            return new BackupResult(job.Id, correlationId, status, attempt, copied, skipped, destRoot);
+        }, ct);
     }
 
     /// <summary>
@@ -151,12 +153,12 @@ public sealed class BackupService
     private async Task<BackupResult> CreateZipBackupAsync(
         BackupJob job, string destRoot, string correlationId, int attempt, CancellationToken ct)
     {
-        Directory.CreateDirectory(job.DestinationPath);
-
         var zipPath = destRoot + ".zip";
 
         await Task.Run(() =>
         {
+            Directory.CreateDirectory(job.DestinationPath);
+
             using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create);
             var allFiles = Directory.EnumerateFiles(job.SourcePath, "*", SearchOption.AllDirectories);
 
@@ -165,7 +167,15 @@ public sealed class BackupService
                 ct.ThrowIfCancellationRequested();
 
                 var relativePath = Path.GetRelativePath(job.SourcePath, srcFile);
-                archive.CreateEntryFromFile(srcFile, relativePath, CompressionLevel.Optimal);
+
+                try
+                {
+                    archive.CreateEntryFromFile(srcFile, relativePath, CompressionLevel.Optimal);
+                }
+                catch (IOException ex)
+                {
+                    _log.Warn(correlationId, $"Skipping file in ZIP due to error: {relativePath}. {ex.Message}");
+                }
             }
         }, ct);
 
@@ -185,6 +195,10 @@ public sealed class BackupService
             return false;
 
         var name = processName.Replace(".exe", "", StringComparison.OrdinalIgnoreCase).Trim();
+        
+        // Handle common process names that users might enter without full accuracy
+        if (name.Equals("Outlook", StringComparison.OrdinalIgnoreCase)) name = "OUTLOOK";
+        
         return System.Diagnostics.Process.GetProcessesByName(name).Length > 0;
     }
 
@@ -217,10 +231,17 @@ public sealed class BackupService
             return $"backup-{now:yyyy-MM-dd}";
 
         // Replace all {format} tokens with formatted DateTime values.
-        return System.Text.RegularExpressions.Regex.Replace(
+        var resolved = System.Text.RegularExpressions.Regex.Replace(
             pattern,
             @"\{([^}]+)\}",
             m => now.ToString(m.Groups[1].Value));
+
+        // Sanitize: replace any remaining illegal characters with underscores.
+        var illegal = Path.GetInvalidFileNameChars().Concat(Path.GetInvalidPathChars()).Distinct();
+        foreach (var c in illegal)
+            resolved = resolved.Replace(c, '_');
+
+        return resolved;
     }
 
     /// <summary>

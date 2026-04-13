@@ -39,8 +39,10 @@ public sealed class SchedulerService : IDisposable
         if (!job.IsEnabled)
             return;
 
-        var intervalMs = (int)TimeSpan.FromMinutes(job.IntervalMinutes).TotalMilliseconds;
-        var timer = new Timer(OnTimerElapsed, job, intervalMs, intervalMs);
+        var interval = TimeSpan.FromMinutes(job.IntervalMinutes);
+        var firstDelay = CalculateInitialDelay(job, interval);
+
+        var timer = new Timer(OnTimerElapsed, job, firstDelay, interval);
         _timers[job.Id] = timer;
 
         _log.Info("csched0",
@@ -70,13 +72,34 @@ public sealed class SchedulerService : IDisposable
 
     // -------------------------------------------------------------------------
 
+    private static TimeSpan CalculateInitialDelay(BackupJob job, TimeSpan interval)
+    {
+        if (!job.LastRunUtc.HasValue)
+            return interval;
+
+        var nextRun = job.LastRunUtc.Value.Add(interval);
+        var remaining = nextRun - DateTimeOffset.UtcNow;
+
+        if (remaining <= TimeSpan.Zero)
+            return TimeSpan.FromSeconds(2); // Overdue: run shortly after startup
+
+        return remaining;
+    }
+
     private async void OnTimerElapsed(object? state)
     {
         if (state is not BackupJob job)
             return;
 
-        var result = await _backupService.RunJobAsync(job);
-        OnBackupCompleted(job, result);
+        try
+        {
+            var result = await _backupService.RunJobAsync(job);
+            OnBackupCompleted(job, result);
+        }
+        catch (Exception ex)
+        {
+            _log.Error("csched-err", $"Background timer for '{job.Name}' failed: {ex.Message}", ex);
+        }
     }
 
     private void OnBackupCompleted(BackupJob job, BackupResult result)

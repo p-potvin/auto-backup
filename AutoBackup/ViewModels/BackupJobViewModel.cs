@@ -54,6 +54,10 @@ public sealed partial class BackupJobViewModel : ObservableObject
         ? LastRunUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
         : "Never";
 
+    public string NextRunDisplay => IsEnabled
+        ? (LastRunUtc ?? DateTimeOffset.UtcNow.AddMinutes(-IntervalMinutes)).AddMinutes(IntervalMinutes).ToLocalTime().ToString("HH:mm")
+        : "Paused";
+
     public string StatusBadge => IsEnabled ? "Enabled" : "Paused";
 
     public BackupJobViewModel(BackupJob job)
@@ -81,5 +85,6 @@ public sealed partial class BackupJobViewModel : ObservableObject
         LastRunUtc = Job.LastRunUtc;
         OnPropertyChanged(nameof(StatusBadge));
         OnPropertyChanged(nameof(LastRunDisplay));
+        OnPropertyChanged(nameof(NextRunDisplay));
     }
 }

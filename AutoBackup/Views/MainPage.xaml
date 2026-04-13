@@ -83,6 +83,12 @@
                                     <TextBlock Text="{x:Bind LastRunDisplay, Mode=OneWay}"
                                                Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
+                                               FontSize="10"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                        <Run Text="Next: " />
+                                        <Run Text="{x:Bind NextRunDisplay, Mode=OneWay}" />
+                                    </TextBlock>
                                 </StackPanel>
 
                                 <Border Grid.Column="1"

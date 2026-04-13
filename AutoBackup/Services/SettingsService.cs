@@ -35,9 +35,16 @@ public sealed class SettingsService
                 return [];
 
             var json = File.ReadAllText(JobsFile);
+            if (string.IsNullOrWhiteSpace(json)) return [];
+            
             return JsonSerializer.Deserialize<List<BackupJob>>(json, JsonOpts) ?? [];
         }
-        catch
+        catch (JsonException)
+        {
+            // If the file is corrupt, we return an empty list.
+            return [];
+        }
+        catch (Exception)
         {
             return [];
         }
@@ -58,9 +65,15 @@ public sealed class SettingsService
                 return new AppSettings();
 
             var json = File.ReadAllText(SettingsFile);
+            if (string.IsNullOrWhiteSpace(json)) return new AppSettings();
+
             return JsonSerializer.Deserialize<AppSettings>(json, JsonOpts) ?? new AppSettings();
         }
-        catch
+        catch (JsonException)
+        {
+            return new AppSettings();
+        }
+        catch (Exception)
         {
             return new AppSettings();
         }
